@@ -266,6 +266,8 @@ namespace Chess{
 
         constexpr Bitboard F8G8_BB   = 6917529027641081856ULL;
 
+        constexpr Bitboard LIGHT_SQUARES = 6172840429334713770ULL;
+
 
         inline Bitboard getBit(Square square){
             return 1ULL << square;

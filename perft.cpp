@@ -17,9 +17,9 @@ uint64_t perft(Chess::Board& board, int depth){
 
     Chess::LegalMovesArray legal_moves = move_gen.generateLegalMoves<turn>(board);
 
-    // if (depth == 1 && (!root)){
-    //     return legal_moves.count;
-    // }
+    if (depth == 1 && (!root)){
+        return legal_moves.count;
+    }
 
     if (!root){
         uint64_t count = 0;

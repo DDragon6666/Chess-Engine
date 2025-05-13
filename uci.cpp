@@ -252,13 +252,9 @@ void loop(){
             Chess::Engine::TT::clear();
         }
 
-        else if (cmd == "ttclear") {
-            Chess::Engine::TT::clear();
-        }
-
         else if (cmd == "ttcap") {
-            std::cout << "Filled " << Chess::Engine::TT::filled << '/' << Chess::Engine::TT::count <<
-                         " (" << ((double(Chess::Engine::TT::filled))/(double(Chess::Engine::TT::count))) << "%)\n";
+            std::cout << "Filled " << Chess::Engine::TT::filled << '/' << Chess::Engine::TT::table.size() <<
+                         " (" << ((double(Chess::Engine::TT::filled))/(double(Chess::Engine::TT::table.size()))) << "%)\n";
         }
 
         else if (cmd == "eval") {
@@ -269,6 +265,35 @@ void loop(){
         //     engine.stop_search = true;
         //     t.join();
         // }
+
+        else if (cmd == "setoption name Clear Hash"){
+            Chess::Engine::TT::clear();
+        }
+
+        else if (cmd.substr(0, 9) == "setoption") {
+            std::istringstream iss(cmd);
+
+            std::string name, value;
+            while (iss >> token) {
+                if (token == "name") {
+                    name.clear();
+                    while (iss >> token && token != "value") {
+                        name += token + " ";
+                    }
+                    name = name.substr(0, name.length() - 1); // trim trailing space
+                }
+
+                if (token == "value") {
+                    iss >> value;
+                }
+            }
+
+            if (name == "Hash") {
+                int mb = std::stoi(value);
+                Chess::Engine::TT::resize(mb);
+            }
+        }
+
 
         else{
             std::cout << "The command '" << cmd << "' is not recognised\n";

@@ -33,20 +33,6 @@ namespace Chess{
                 
             public:
                 void go(Board& board, SearchLimit search_limits){
-                    // log the previous move if there was one
-                    // if (board.move_stack.size() <= 1){
-                    //     std::ofstream save_file("engine-logs\\logs.txt", std::ios::app);
-                    //     std::string info_str = "new_game\n\n";
-                    //     save_file << info_str;
-                    //     save_file.close();
-                    // }
-                    // if (board.move_stack.size()){
-                    //     std::ofstream save_file("engine-logs\\logs.txt", std::ios::app);
-                    //     std::string info_str = "their_move " + Chess::Visuals::moveToString(board.move_stack[board.move_stack.size() - 1].move) + "\n\n";
-                    //     save_file << info_str;
-                    //     save_file.close();
-                    // }
-
 
                     // if theres only 1 legal move, return that legal move (and is playing a game)
                     Move best_move = 0;
@@ -56,10 +42,7 @@ namespace Chess{
                     if (best_move == 0) best_move = getBestMove(board, search_limits, true);
 
 
-                    // std::ofstream save_file("engine-logs\\logs.txt", std::ios::app);
-                    // std::string info_str = "bestmove " + Chess::Visuals::moveToString(best_move) + "\n\n";
-                    // save_file << info_str;
-                    // save_file.close();
+                    log("bestmove " + Chess::Visuals::moveToString(best_move));
                     std::cout << "bestmove " << Chess::Visuals::moveToString(best_move) << '\n';
                 }
 
@@ -131,7 +114,7 @@ namespace Chess{
                                             : LMR::getLMRDepth(depth);
     
                             // PVS
-                            // Evaluation eval = -negamax<!turn, true>(board, search_depth - 1, -beta, -alpha);;
+                            // Evaluation eval = -negamax<!turn>(board, search_depth - 1, -beta, -alpha);;
                             Evaluation eval;
                             if (i == 0){
                                 // search with normal window
@@ -152,20 +135,22 @@ namespace Chess{
                             // if stop search or is mate, return the best move
                             if (stop_search || Evaluations::is_win(eval)){
                                 if (Evaluations::is_win(eval) && !stop_search){
+                                    auto end = std::chrono::high_resolution_clock::now();
+                                    std::chrono::duration<double> duration = end - start;
+                                    double time_taken = duration.count();
                                     alpha     = eval;
                                     best_move = move;
+                                    std::string info_str = std::string("info") +
+                                                           " depth "    + std::to_string(depth) +
+                                                           " nodes "    + std::to_string(nodes_searched) +
+                                                           " time "     + std::to_string((int)(time_taken * 1000)) +
+                                                           " nps "      + std::to_string((int)(nodes_searched / time_taken)) +
+                                                           " score cp " + std::to_string((int)Evaluations::normalise(alpha, turn)) +
+                                                           " pv "       + getPrincipalVariation(board, best_move) +
+                                                           '\n';
+                                    log(info_str);
                                     if (print){
-                                        auto end = std::chrono::high_resolution_clock::now();
-                                        std::chrono::duration<double> duration = end - start;
-                                        double time_taken = duration.count();
-                                        std::cout << "info";
-                                        std::cout << " depth "    << depth;
-                                        std::cout << " nodes "    << nodes_searched;
-                                        std::cout << " time "     << (int)(time_taken * 1000);
-                                        std::cout << " nps "      << (int)(nodes_searched / time_taken);
-                                        std::cout << " score cp " << (int)alpha;
-                                        std::cout << " pv "       << getPrincipalVariation(board, best_move);
-                                        std::cout << '\n';
+                                        std::cout << info_str;
                                     }
                                 }
                                 stopSearch(timer_thread);
@@ -178,9 +163,11 @@ namespace Chess{
                                 alpha               = eval;
                                 best_move_this_iter = move;
                                 move_ordering[i].importance = eval;
+                                move_ordering[i].raised_alpha = true;
                             }
                             else{
-                                move_ordering[i].importance = eval - 1; // roughly keep the previous ordering
+                                move_ordering[i].importance = eval;
+                                move_ordering[i].raised_alpha = false;
                             }
 
                             // if (print){ (debugging only)
@@ -200,9 +187,9 @@ namespace Chess{
                         }
     
                         // sort moves
-                        std::sort(move_ordering.begin(), move_ordering.end(), [](const MoveOrderingStruct& a, const MoveOrderingStruct& b) {return a.importance > b.importance;});
+                        std::sort(move_ordering.begin(), move_ordering.end(), [](const MoveOrderingStruct& a, const MoveOrderingStruct& b) {return ((a.raised_alpha != b.raised_alpha) && a.raised_alpha) || (a.importance > b.importance);});
                 
-                        // // change the moves array
+                        // // // change the moves array
                         for (int i = 0; i < moves.count; i++){
                             moves.moves[i] = move_ordering[i].move;
                         }
@@ -213,30 +200,20 @@ namespace Chess{
                         
                         std::chrono::duration<double> duration = end - start;
                         double time_taken = duration.count();
-                        
+
                         std::string info_str = std::string("info") +
                                                " depth "    + std::to_string(depth) +
                                                " nodes "    + std::to_string(nodes_searched) +
                                                " time "     + std::to_string((int)(time_taken * 1000)) +
                                                " nps "      + std::to_string((int)(nodes_searched / time_taken)) +
-                                               " score cp " + std::to_string((int)alpha) +
+                                               " score cp " + std::to_string((int)Evaluations::normalise(alpha, turn)) +
                                                " pv "       + getPrincipalVariation(board, best_move) +
                                                '\n';
                         log(info_str);
 
                         if (print){
                             // print the search info for this depth
-                            std::cout << "info";
-                            std::cout << " depth "    << depth;
-                            std::cout << " nodes "    << nodes_searched;
-                            std::cout << " time "     << (int)(time_taken * 1000);
-                            std::cout << " nps "      << (int)(nodes_searched / time_taken);
-                            std::cout << " score cp " << (int)alpha;
-                            std::cout << " pv "       << getPrincipalVariation(board, best_move);
-                            std::cout << '\n';
-                            // std::cout << "extra info";
-                            // std::cout << " ab prune " << ab_prune_count;
-                            // std::cout << " tt usage " << tt_use_count << '\n';
+                            std::cout << info_str;
                         }
 
                         // decrease alpha for the next depth
@@ -267,6 +244,10 @@ namespace Chess{
                         return 0;
                     }
 
+                    if (board.insufficientMaterial()){
+                        return 0;
+                    }
+
                     if (board.repeated()){
                         return 0;
                     }
@@ -281,27 +262,27 @@ namespace Chess{
                     LegalMovesArray moves = move_gen.generateLegalMoves<turn>(board);
                     // check transposition table
                     {
-                        TT::TTData entry = TT::table[TT::getIndex(board.hash)];
-                        if (entry.hash == board.hash){
-                            if (entry.depth >= depth){
-                                bool legal = entry.move == 0;
-                                if (entry.move){
-                                    // check if the saved move is legal
-                                    for (Move move : moves) if (entry.move == move) { legal = true; break; }
+                        TT::TTData entry = TT::getEntry(board.hash);
+                        if (entry.hash == board.hash && entry.depth >= depth){
+                            bool legal = 0;
+                            if (entry.move){
+                                // check if the saved move is legal
+                                for (Move move : moves){
+                                    if (entry.move == move) { legal = true; break; }
                                 }
-                                if (legal){
-                                    Evaluation adjusted_eval = entry.eval;
-                                    if (Evaluations::is_win (adjusted_eval)) adjusted_eval = std::max(adjusted_eval - depth, Evaluations::EVAL_MATE_IN_MAX_PLY);
-                                    if (Evaluations::is_loss(adjusted_eval)) adjusted_eval = std::min(adjusted_eval + depth, Evaluations::EVAL_MATED_IN_MAX_PLY);
-                                    if (entry.node_type == Values::NodeTypes::EXACT) {
-                                        return adjusted_eval;
-                                    }
-                                    else if (entry.node_type == Values::NodeTypes::FAIL_LOW && adjusted_eval <= alpha) {
-                                        return adjusted_eval;
-                                    }
-                                    else if (entry.node_type == Values::NodeTypes::FAIL_HIGH && adjusted_eval >= beta) {
-                                        return adjusted_eval;
-                                    }
+                            }
+                            if (legal){
+                                Evaluation adjusted_eval = entry.eval;
+                                if (Evaluations::is_win (adjusted_eval)) adjusted_eval = std::max(adjusted_eval - depth, Evaluations::EVAL_MATE_IN_MAX_PLY);
+                                if (Evaluations::is_loss(adjusted_eval)) adjusted_eval = std::min(adjusted_eval + depth, Evaluations::EVAL_MATED_IN_MAX_PLY);
+                                if (entry.node_type == Values::NodeTypes::EXACT) {
+                                    return adjusted_eval;
+                                }
+                                else if (entry.node_type == Values::NodeTypes::FAIL_LOW && adjusted_eval <= alpha) {
+                                    return adjusted_eval - 1;
+                                }
+                                else if (entry.node_type == Values::NodeTypes::FAIL_HIGH && adjusted_eval >= beta) {
+                                    return adjusted_eval + 1;
                                 }
                             }
                         }
@@ -360,7 +341,7 @@ namespace Chess{
                         }
 
                         // PVS
-                        // Evaluation eval = -negamax<!turn, save_to_tt>(board, search_depth - 1, -beta, -alpha);
+                        // Evaluation eval = -negamax<!turn>(board, search_depth - 1, -beta, -alpha);
                         Evaluation eval;
                         if (i == 0){
                             // search with normal window
@@ -404,6 +385,10 @@ namespace Chess{
                 template<Colour turn>
                 Evaluation qsearch(Board& board, Evaluation alpha, Evaluation beta){
                     if (stop_search){
+                        return 0;
+                    }
+
+                    if (board.insufficientMaterial()){
                         return 0;
                     }
 
@@ -883,7 +868,7 @@ namespace Chess{
 
                         // check transposition table
                         {
-                            TT::TTData entry = TT::table[TT::getIndex(board.hash)];
+                            TT::TTData entry = TT::getEntry(board.hash);
                             if (entry.hash == board.hash){
                                 board.undoMove();
                                 return entry.eval;
@@ -908,7 +893,7 @@ namespace Chess{
                     Move best_move = 0;
                     if constexpr (!fast){
                         // check transposition table
-                        TT::TTData entry = TT::table[TT::getIndex(board.hash)];
+                        TT::TTData entry = TT::getEntry(board.hash);
                         if (entry.hash == board.hash){
                             best_move = entry.move;
                         }
@@ -949,7 +934,7 @@ namespace Chess{
                         r += Visuals::moveToString(move);
                         r += " ";
                         board.playMove(move);
-                        TT::TTData entry = TT::table[TT::getIndex(board.hash)];
+                        TT::TTData entry = TT::getEntry(board.hash);
                         if (entry.hash == board.hash){
                             move = entry.move;
                         }
@@ -1012,7 +997,7 @@ namespace Chess{
                 }
 
                 void log(std::string info){
-                    std::ofstream save_file("engine-logs\\logs.txt", std::ios::app);
+                    std::ofstream save_file("engine-logs\\logsv2.txt", std::ios::app);
                     save_file << info;
                     save_file.close();
                 }

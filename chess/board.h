@@ -404,6 +404,10 @@ namespace Chess{
                 }
                 ep = (pawn_moved && (turn == Colours::WHITE ? (to - from == Directions::NORTH2) : (to - from == Directions::SOUTH2))) ? ((turn == Colours::WHITE) ? (to + Directions::SOUTH) : (to + Directions::NORTH)) : 0;
                 ep = isEpPinned() ? 0 : ep; // remove pinned eps
+                ep = (((turn == Colours::WHITE) ?
+                        Bitboards::getPawnAttacks<Colours::WHITE>(Bitboards::getBit(ep)) :
+                        Bitboards::getPawnAttacks<Colours::BLACK>(Bitboards::getBit(ep)))
+                     & pieces[Pieces::gen(Pieces::W_PAWN, !turn)]) ? ep : 0; // if a pawn can take then its ep otherwise its not
                 if (ep){
                     // add new ep from hash
                     hash ^= Zobrist::EP_KEYS[Squares::getX(ep)];
@@ -631,6 +635,35 @@ namespace Chess{
                 }
 
                 return false;
+            }
+
+            bool insufficientMaterial(){
+                // get count of bishops and knights on each side
+                Bitboard kings = pieces[Pieces::W_KING] | pieces[Pieces::B_KING];
+                
+                if (!(all_pieces & ~kings)) return true; // theres no pieces left except kings, return true
+                Bitboard pawns  = pieces[Pieces::W_PAWN ] | pieces[Pieces::B_PAWN ];
+                Bitboard rooks  = pieces[Pieces::W_ROOK ] | pieces[Pieces::B_ROOK ];
+                Bitboard queens = pieces[Pieces::W_QUEEN] | pieces[Pieces::B_QUEEN];
+                if (pawns || rooks || queens) return false; // theres a pawn, rook or queen, return false
+
+                int w_knights = Bitboards::countBits(pieces[Pieces::W_KNIGHT]);
+                int w_bishops = Bitboards::countBits(pieces[Pieces::W_BISHOP]);
+                int b_knights = Bitboards::countBits(pieces[Pieces::B_KNIGHT]);
+                int b_bishops = Bitboards::countBits(pieces[Pieces::B_BISHOP]);
+
+                if (w_bishops && w_knights) return false; // 1 bishop 1 knight is sufficient so any non 0 amount of knights with any non 0 amount of bishops is sufficient
+                if (b_bishops && b_knights) return false;
+
+                // there has to be 3 or more knights for a non draw
+                if (w_knights >= 3 || b_knights >= 3) return false;
+
+                // if theres bishops on both coloured squares return false
+                if ((pieces[Pieces::W_BISHOP] & Bitboards::LIGHT_SQUARES) && (pieces[Pieces::W_BISHOP] & ~Bitboards::LIGHT_SQUARES)) return false;
+                if ((pieces[Pieces::B_BISHOP] & Bitboards::LIGHT_SQUARES) && (pieces[Pieces::B_BISHOP] & ~Bitboards::LIGHT_SQUARES)) return false;
+
+                return true;
+
             }
 
             /// @brief returns the bitboard of attacked squares if the king of !attacker wasnt there

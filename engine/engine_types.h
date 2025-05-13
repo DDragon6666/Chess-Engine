@@ -68,15 +68,22 @@ namespace Chess::Engine{
         Evaluation getMateEval(Depth mate_ply){
             return EVAL_MATE - mate_ply;
         }
+
+        Evaluation normalise(Evaluation e, Colour turn){
+            if (turn == Colours::WHITE) return e;
+            return -e;
+        }
     }
 
 
     struct MoveOrderingStruct{
         Evaluation importance;
         Move move;
+        bool raised_alpha;
 
-        MoveOrderingStruct(Move move_, Evaluation importance_) : move(move_), importance(importance_) {}
-        MoveOrderingStruct() : move(0), importance(0) {}
+        MoveOrderingStruct(Move move_, Evaluation importance_, bool raised_alpha_) : move(move_), importance(importance_), raised_alpha(raised_alpha) {}
+        MoveOrderingStruct(Move move_, Evaluation importance_) : move(move_), importance(importance_), raised_alpha(0) {}
+        MoveOrderingStruct() : move(0), importance(0), raised_alpha(0) {}
     };
 
 
@@ -509,16 +516,16 @@ namespace Chess::Engine{
             Evaluation PAWNS_AROUND_KING = 2;
 
             Evaluation KNIGHT_ATT = 20;
-            Evaluation KNIGHT_DEF = 20;
+            Evaluation KNIGHT_DEF = 30;
 
             Evaluation BISHOP_ATT = 30;
-            Evaluation BISHOP_DEF = 10;
+            Evaluation BISHOP_DEF = 30;
 
-            Evaluation ROOK_ATT   = 30;
-            Evaluation ROOK_DEF   = 20;
+            Evaluation ROOK_ATT   = 20;
+            Evaluation ROOK_DEF   = 30;
 
-            Evaluation QUEEN_ATT  = 50;
-            Evaluation QUEEN_DEF  = 10;
+            Evaluation QUEEN_ATT  = 40;
+            Evaluation QUEEN_DEF  = 15;
 
             EvalByPhase getKingSafetyEval(Board& board){
 
@@ -562,26 +569,29 @@ namespace Chess::Engine{
                 int b_rook_defenders   = Bitboards::countBits(board.pieces[Pieces::B_ROOK]   & b_kingsafety_rooks);
                 int b_queen_defenders  = Bitboards::countBits(board.pieces[Pieces::B_QUEEN]  & (b_kingsafety_bishops | b_kingsafety_rooks));
 
-                Evaluation eval = (
-                    w_knight_attackers * KNIGHT_ATT +
-                    w_bishop_attackers * BISHOP_ATT +
-                    w_rook_attackers   * ROOK_ATT   +
-                    w_queen_attackers  * QUEEN_ATT  +
+                Evaluation w_att_total = w_knight_attackers * KNIGHT_ATT +
+                                         w_bishop_attackers * BISHOP_ATT +
+                                         w_rook_attackers   * ROOK_ATT   +
+                                         w_queen_attackers  * QUEEN_ATT;
 
-                    w_knight_defenders * KNIGHT_DEF +
-                    w_bishop_defenders * BISHOP_DEF +
-                    w_rook_defenders   * ROOK_DEF   +
-                    w_queen_defenders  * QUEEN_DEF
-                ) - (
-                    b_knight_attackers * KNIGHT_ATT +
-                    b_bishop_attackers * BISHOP_ATT +
-                    b_rook_attackers   * ROOK_ATT   +
-                    b_queen_attackers  * QUEEN_ATT  +
+                Evaluation w_def_total = w_knight_attackers * KNIGHT_DEF +
+                                         w_bishop_attackers * BISHOP_DEF +
+                                         w_rook_attackers   * ROOK_DEF   +
+                                         w_queen_attackers  * QUEEN_DEF;
 
-                    b_knight_defenders * KNIGHT_DEF +
-                    b_bishop_defenders * BISHOP_DEF +
-                    b_rook_defenders   * ROOK_DEF   +
-                    b_queen_defenders  * QUEEN_DEF
+                Evaluation b_att_total = b_knight_attackers * KNIGHT_ATT +
+                                         b_bishop_attackers * BISHOP_ATT +
+                                         b_rook_attackers   * ROOK_ATT   +
+                                         b_queen_attackers  * QUEEN_ATT;
+
+                Evaluation b_def_total = b_knight_attackers * KNIGHT_DEF +
+                                         b_bishop_attackers * BISHOP_DEF +
+                                         b_rook_attackers   * ROOK_DEF   +
+                                         b_queen_attackers  * QUEEN_DEF;
+
+                Evaluation eval = ( // bonus if attackers are greater than defenders by a bit
+                    std::max<Evaluation>(w_att_total - b_def_total - 20, 0) -
+                    std::max<Evaluation>(b_att_total - w_def_total - 20, 0)
                 );
 
                 return EvalByPhase(eval, eval / 3);
@@ -708,12 +718,12 @@ namespace Chess::Engine{
 
 
                 // add value for isolated pawns (value should be negative)
-                eval.midgame += -7 * (Bitboards::countBits(w_isolated) - Bitboards::countBits(b_isolated));
+                eval.midgame += -6 * (Bitboards::countBits(w_isolated) - Bitboards::countBits(b_isolated));
                 eval.endgame += -2 * (Bitboards::countBits(w_isolated) - Bitboards::countBits(b_isolated));
             
                 // add value for doubled pawns (value should be negative)
-                eval.midgame += -8  * (Bitboards::countBits(w_doubled) - Bitboards::countBits(b_doubled));
-                eval.endgame += -14 * (Bitboards::countBits(w_doubled) - Bitboards::countBits(b_doubled));
+                eval.midgame += -5  * (Bitboards::countBits(w_doubled) - Bitboards::countBits(b_doubled));
+                eval.endgame += -8 * (Bitboards::countBits(w_doubled) - Bitboards::countBits(b_doubled));
 
                 // add value for doubled isolated pawns (value should be negative, there will still be values for it being doubled and isolated so be careful)
                 eval.midgame += -8  * (Bitboards::countBits(w_double_iso) - Bitboards::countBits(b_double_iso));
