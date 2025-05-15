@@ -157,8 +157,8 @@ namespace Chess::Engine{
 
         // evaluations for specific things
         namespace Eval{
-            constexpr Evaluation PIECE_MG_VALUES[6] = {62, 337, 365, 477, 1025, 0};
-            constexpr Evaluation PIECE_EG_VALUES[6] = {94, 281, 297, 552,  936, 0};
+            Evaluation PIECE_MG_VALUES[6] = {62, 337, 365, 477, 1025, 0};
+            Evaluation PIECE_EG_VALUES[6] = {94, 281, 297, 552,  936, 0};
 
             Evaluation MG_TURN_BONUS = 30;
             Evaluation EG_TURN_BONUS = 12;
@@ -513,25 +513,35 @@ namespace Chess::Engine{
         }
 
         namespace Eval::KingSafety{
-            Evaluation PAWNS_AROUND_KING = 2;
 
-            Evaluation KNIGHT_ATT = 20;
-            Evaluation KNIGHT_DEF = 30;
+            Evaluation PAWN_ATT = 10;
+            Evaluation PAWN_DEF = 20;
+
+            Evaluation KNIGHT_ATT = 30;
+            Evaluation KNIGHT_DEF = 40;
 
             Evaluation BISHOP_ATT = 30;
             Evaluation BISHOP_DEF = 30;
 
-            Evaluation ROOK_ATT   = 20;
+            Evaluation ROOK_ATT   = 30;
             Evaluation ROOK_DEF   = 30;
 
-            Evaluation QUEEN_ATT  = 40;
+            Evaluation QUEEN_ATT  = 50;
             Evaluation QUEEN_DEF  = 15;
 
             EvalByPhase getKingSafetyEval(Board& board){
 
                 // get squares around the king
-                Bitboard w_kingsafety_squares = Bitboards::getKingAttacks(board.kingPos<Colours::WHITE>());
-                Bitboard b_kingsafety_squares = Bitboards::getKingAttacks(board.kingPos<Colours::BLACK>());
+                Square w_king = board.kingPos<Colours::WHITE>();
+                Square b_king = board.kingPos<Colours::BLACK>();
+
+                // get square of kings if they were brought to the centre 6x6 square
+                Square w_king_offedge = std::max<Square>(1, std::min<Square>(6, Squares::getX(w_king))); + 8 * std::max<Square>(1, std::min<Square>(6, Squares::getY(w_king)));
+                Square b_king_offedge = std::max<Square>(1, std::min<Square>(6, Squares::getX(b_king))); + 8 * std::max<Square>(1, std::min<Square>(6, Squares::getY(b_king)));
+
+                // squares which are dangerous for the king
+                Bitboard w_kingsafety_squares = Bitboards::getKingAttacks(w_king_offedge);
+                Bitboard b_kingsafety_squares = Bitboards::getKingAttacks(b_king_offedge);
 
                 Bitboard w_blockers = board.colours[Colours::WHITE] | board.pieces[Pieces::B_PAWN];
                 Bitboard b_blockers = board.colours[Colours::BLACK] | board.pieces[Pieces::W_PAWN];
@@ -548,53 +558,67 @@ namespace Chess::Engine{
                 Bitboard w_kingsafety_rooks = Bitboards::getRookAttackedSquares(w_blockers, w_kingsafety_squares);
                 Bitboard b_kingsafety_rooks = Bitboards::getRookAttackedSquares(b_blockers, b_kingsafety_squares);
 
-
+                int w_pawn_attackers   = Bitboards::countBits(board.pieces[Pieces::W_PAWN]   & b_kingsafety_squares);
                 int w_knight_attackers = Bitboards::countBits(board.pieces[Pieces::W_KNIGHT] & b_kingsafety_knights);
                 int w_bishop_attackers = Bitboards::countBits(board.pieces[Pieces::W_BISHOP] & b_kingsafety_bishops);
                 int w_rook_attackers   = Bitboards::countBits(board.pieces[Pieces::W_ROOK]   & b_kingsafety_rooks);
                 int w_queen_attackers  = Bitboards::countBits(board.pieces[Pieces::W_QUEEN]  & (b_kingsafety_bishops | b_kingsafety_rooks));
-
+                
+                int w_pawn_defenders   = Bitboards::countBits(board.pieces[Pieces::W_PAWN]   & w_kingsafety_squares);
                 int w_knight_defenders = Bitboards::countBits(board.pieces[Pieces::W_KNIGHT] & w_kingsafety_knights);
                 int w_bishop_defenders = Bitboards::countBits(board.pieces[Pieces::W_BISHOP] & w_kingsafety_bishops);
                 int w_rook_defenders   = Bitboards::countBits(board.pieces[Pieces::W_ROOK]   & w_kingsafety_rooks);
                 int w_queen_defenders  = Bitboards::countBits(board.pieces[Pieces::W_QUEEN]  & (w_kingsafety_bishops | w_kingsafety_rooks));
-
+                
+                int b_pawn_attackers   = Bitboards::countBits(board.pieces[Pieces::B_PAWN]   & w_kingsafety_squares);
                 int b_knight_attackers = Bitboards::countBits(board.pieces[Pieces::B_KNIGHT] & w_kingsafety_knights);
                 int b_bishop_attackers = Bitboards::countBits(board.pieces[Pieces::B_BISHOP] & w_kingsafety_bishops);
                 int b_rook_attackers   = Bitboards::countBits(board.pieces[Pieces::B_ROOK]   & w_kingsafety_rooks);
                 int b_queen_attackers  = Bitboards::countBits(board.pieces[Pieces::B_QUEEN]  & (w_kingsafety_bishops | w_kingsafety_rooks));
-
+                
+                int b_pawn_defenders   = Bitboards::countBits(board.pieces[Pieces::B_PAWN]   & b_kingsafety_squares);
                 int b_knight_defenders = Bitboards::countBits(board.pieces[Pieces::B_KNIGHT] & b_kingsafety_knights);
                 int b_bishop_defenders = Bitboards::countBits(board.pieces[Pieces::B_BISHOP] & b_kingsafety_bishops);
                 int b_rook_defenders   = Bitboards::countBits(board.pieces[Pieces::B_ROOK]   & b_kingsafety_rooks);
                 int b_queen_defenders  = Bitboards::countBits(board.pieces[Pieces::B_QUEEN]  & (b_kingsafety_bishops | b_kingsafety_rooks));
 
-                Evaluation w_att_total = w_knight_attackers * KNIGHT_ATT +
+                Evaluation w_att_total = w_pawn_attackers   * PAWN_ATT   +
+                                         w_knight_attackers * KNIGHT_ATT +
                                          w_bishop_attackers * BISHOP_ATT +
                                          w_rook_attackers   * ROOK_ATT   +
                                          w_queen_attackers  * QUEEN_ATT;
 
-                Evaluation w_def_total = w_knight_attackers * KNIGHT_DEF +
+                Evaluation w_def_total = w_pawn_defenders   * PAWN_DEF   +
+                                         w_knight_attackers * KNIGHT_DEF +
                                          w_bishop_attackers * BISHOP_DEF +
                                          w_rook_attackers   * ROOK_DEF   +
                                          w_queen_attackers  * QUEEN_DEF;
 
-                Evaluation b_att_total = b_knight_attackers * KNIGHT_ATT +
+                Evaluation b_att_total = b_pawn_attackers   * PAWN_ATT   +
+                                         b_knight_attackers * KNIGHT_ATT +
                                          b_bishop_attackers * BISHOP_ATT +
                                          b_rook_attackers   * ROOK_ATT   +
                                          b_queen_attackers  * QUEEN_ATT;
 
-                Evaluation b_def_total = b_knight_attackers * KNIGHT_DEF +
+                Evaluation b_def_total = b_pawn_defenders   * PAWN_DEF   +
+                                         b_knight_attackers * KNIGHT_DEF +
                                          b_bishop_attackers * BISHOP_DEF +
                                          b_rook_attackers   * ROOK_DEF   +
                                          b_queen_attackers  * QUEEN_DEF;
 
-                Evaluation eval = ( // bonus if attackers are greater than defenders by a bit
-                    std::max<Evaluation>(w_att_total - b_def_total - 20, 0) -
-                    std::max<Evaluation>(b_att_total - w_def_total - 20, 0)
+                // 0 if king is safe, the larger the more that king is in danger
+                Evaluation w_king_danger = std::max<Evaluation>(b_att_total - w_def_total, 0);
+                Evaluation b_king_danger = std::max<Evaluation>(w_att_total - b_def_total, 0);
+
+                // bonus for king danger squared so adding a small bit more danger is much worse
+                // positive if b_king_danger is greater than w_king_danger
+                Evaluation eval = (
+                    b_king_danger * b_king_danger -
+                    w_king_danger * w_king_danger
                 );
 
-                return EvalByPhase(eval, eval / 3);
+                // it matters a lot in the midgame, doesnt matter in the endgame
+                return EvalByPhase(eval, 0);
             }
             
         }
