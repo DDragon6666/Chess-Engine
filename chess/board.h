@@ -6,6 +6,7 @@
 #include <array>
 #include <vector>
 
+#include "..\logger.h"
 #include "types.h"
 #include "..\transposition_table\zobrist.h"
 
@@ -108,7 +109,7 @@ namespace Chess{
 
             }
 
-            void printBoard(bool print_hash = false){
+            void printBoard(bool print_extras = false){
                 // loop through pieces and print the piece
                 for (int y = 0; y < 8; y++){
                     std::cout << Visuals::Y_COORDS[7 - y];
@@ -123,7 +124,8 @@ namespace Chess{
                 }
                 std::cout << '\n';
 
-                if (print_hash){
+                if (print_extras){
+                    std::cout << "Fen:  " << toFen() << '\n';
                     std::cout << "Hash: " << hash << '\n';
                 }
             }
@@ -330,6 +332,40 @@ namespace Chess{
 
                 setHash();
 
+            }
+
+
+            std::string toFen(){
+                int e = 0;
+
+                std::string fen = "";
+
+                for (int r = 7; r >= 0; r--)
+                {
+                    for (int f = 0; f <= 7; f++)
+                    {
+
+                        for (e = 0; f <= 7 && getPieceAt(f + r * 8) == Pieces::EMPTY; f++) e++;
+
+                        if (e) fen += std::to_string(e);
+
+                        if (f <= 7) fen += std::string(1, Visuals::PIECE_CHARS[getPieceAt(f + r * 8)]);
+                    }
+
+                    if (r > 0) fen += "/";
+                }
+
+                fen += ((turn == Colours::WHITE) ? " w " : " b ");
+
+                if (castling_rights[Colours::WHITE] & Castling::KINGSIDE)  fen += "K";
+                if (castling_rights[Colours::WHITE] & Castling::QUEENSIDE) fen += "Q";
+                if (castling_rights[Colours::BLACK] & Castling::KINGSIDE)  fen += "k";
+                if (castling_rights[Colours::BLACK] & Castling::QUEENSIDE) fen += "q";
+                if (!(castling_rights[Colours::WHITE] || castling_rights[Colours::BLACK])) fen += "-";
+
+                fen += (ep ? (" " + std::string(1, Visuals::X_COORDS[Squares::getX(ep)] - 'A' + 'a') + std::string(1, Visuals::Y_COORDS[Squares::getY(ep)]) + " ") : " - ");
+
+                return fen;
             }
 
             /// @brief prints the values of each bitboard, ep, castling rights, turn, and the previous past_moves moves
@@ -542,7 +578,10 @@ namespace Chess{
                 // very slow, only use when setting a certain fen onto the board
                 hash = 0;
         
-                for (Square square = Squares::A1; square <= Squares::H8; square++){
+                Bitboard b = all_pieces;
+
+                while (b){
+                    Square square = Bitboards::popNextSquare(b);
                     Piece piece = getPieceAt(square);
         
 
@@ -551,7 +590,7 @@ namespace Chess{
         
                 }
         
-                hash ^= turn ? Zobrist::TURN_KEY : 0;
+                hash ^= (turn == Colours::BLACK) ? Zobrist::TURN_KEY : 0;
         
                 hash ^= Zobrist::W_CASTLE[castling_rights[Colours::WHITE]];
                 hash ^= Zobrist::B_CASTLE[castling_rights[Colours::BLACK]];
