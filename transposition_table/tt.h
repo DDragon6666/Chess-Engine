@@ -14,11 +14,12 @@ namespace Chess::Engine::TT{
     struct TTData{
         Zobrist::Hash hash;
         Evaluation eval;
-        Depth depth;
+        uint8_t depth;
         Move move;
-        int node_type;
+        uint8_t node_type;
 
-        TTData(Zobrist::Hash hash_, Evaluation eval_, Depth depth_, Move move_, int node_type_) : hash(hash_), eval(eval_), depth(depth_), move(move_), node_type(node_type_) {}
+        TTData(Zobrist::Hash hash_, Evaluation eval_, Depth depth_, Move move_, int node_type_) :
+                        hash(hash_), eval(eval_), depth(depth_), move(move_), node_type(node_type_) {}
         TTData() : hash(0), eval(0), depth(0), move(0), node_type(0) {}
     };
     #pragma pack(pop)
