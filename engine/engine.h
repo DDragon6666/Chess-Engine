@@ -776,6 +776,7 @@ namespace Chess{
 
                 int getSearchTime(int time, int inc){
 
+                    // simulate the time it takes to reach this point from when lichess changed turns
                     time -= Lichess::ping;
 
                     int t = 0;
@@ -784,12 +785,19 @@ namespace Chess{
                         t = inc + 100; // if below 10 seconds, make it use ~100ms a turn
                     }
                     else{
-                        t = time / 20 + inc;
+                        t = inc + time / 20; // if above 10s, make it use 1/20th of its time remaining
                     }
 
-                    // remove Lichess::ping from t so it accounts for the time it takes to get to lichess
-                    // clamp the time used between time remaining and 0
-                    return std::max(0, std::min(time, t) - Lichess::ping);
+                    // cap the time used to time so it doesnt flag
+                    t = std::min(time, t);
+
+                    // simulate the time it will take for it to go from here to lichess
+                    t -= Lichess::ping;
+
+                    // make the time at least 0s
+                    t = std::max(0, t);
+
+                    return t;
                 }
 
             };
