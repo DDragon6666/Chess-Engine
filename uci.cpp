@@ -135,9 +135,11 @@ void loop(){
                 search_limit = Chess::Engine::Values::DEFAULT_LIMIT;
             }
 
-            engine.go(board, search_limit);
 
-            // t = std::thread(&Chess::Engine::Engine::go, &engine, std::ref(board), search_limit);
+            Logger::log("Go cmd: " + cmd + "\n");
+            Logger::log("Go Fen: " + board.toFen() + "\n");
+
+            engine.go(board, search_limit);
 
 
         }
@@ -260,12 +262,12 @@ void loop(){
 
         else if (cmd == "eval") {
             if (board.turn == Chess::Colours::WHITE){
-                std::cout << "Normal: " << engine.staticEvaluate<Chess::Colours::WHITE>(board) << '\n';
-                std::cout << "Fast:   " << engine.staticEvaluate<Chess::Colours::WHITE>(board) << '\n';
+                std::cout << "Normal: " << engine.staticEvaluate    <Chess::Colours::WHITE>(board) << '\n';
+                std::cout << "Fast:   " << engine.fastStaticEvaluate<Chess::Colours::WHITE>(board) << '\n';
             }
             else{
-                std::cout << "Normal: " << -engine.staticEvaluate<Chess::Colours::BLACK>(board) << '\n';
-                std::cout << "Fast:   " << -engine.staticEvaluate<Chess::Colours::BLACK>(board) << '\n';
+                std::cout << "Normal: " << -engine.staticEvaluate    <Chess::Colours::BLACK>(board) << '\n';
+                std::cout << "Fast:   " << -engine.fastStaticEvaluate<Chess::Colours::BLACK>(board) << '\n';
             }
         }
 
