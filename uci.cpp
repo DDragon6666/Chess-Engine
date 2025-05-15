@@ -29,6 +29,7 @@ void loop(){
         else if (cmd == "uci"){
             std::cout << "id name DDragon_Engine\n";
             std::cout << "id author DDragon\n";
+            std::cout << "option name Hash type spin default 64 min 1 max 4096\n";
             std::cout << "uciok\n";
         }
 
@@ -37,7 +38,7 @@ void loop(){
         }
 
         else if (cmd == "draw"){
-            board.printBoard();
+            board.printBoard(true);
         }
 
         else if (cmd == "debugboard"){
@@ -258,7 +259,14 @@ void loop(){
         }
 
         else if (cmd == "eval") {
-            engine.printStaticEvaluation(board);
+            if (board.turn == Chess::Colours::WHITE){
+                std::cout << "Normal: " << engine.staticEvaluate<Chess::Colours::WHITE>(board) << '\n';
+                std::cout << "Fast:   " << engine.staticEvaluate<Chess::Colours::WHITE>(board) << '\n';
+            }
+            else{
+                std::cout << "Normal: " << -engine.staticEvaluate<Chess::Colours::BLACK>(board) << '\n';
+                std::cout << "Fast:   " << -engine.staticEvaluate<Chess::Colours::BLACK>(board) << '\n';
+            }
         }
 
         // else if (cmd == "stop") {
@@ -294,7 +302,6 @@ void loop(){
             }
         }
 
-
         else{
             std::cout << "The command '" << cmd << "' is not recognised\n";
         }
@@ -313,7 +320,7 @@ int main(){
     Chess::Zobrist::initialise();
     // Chess::Engine::TT::clear();
 
-    std::cout << sizeof(Chess::Engine::TT::table) << '\n';
+    std::cout << sizeof(Chess::Engine::TT::TTData) << '\n';
     std::cout << "Start\n";
 
     loop();
