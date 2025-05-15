@@ -1,3 +1,5 @@
 .vscode/
 engine/test_positions/
 engine-logs/
+helpful.py
+get_uciable_pgn.py
