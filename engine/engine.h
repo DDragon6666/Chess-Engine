@@ -766,12 +766,30 @@ namespace Chess{
                     // subtract lichess ping from the time it has and the time it uses
                     // subtracting from the time it has simulates the time it takes to reach this point
                     // subtracting from the time it uses simulates the time it takes to get to lichess/output
-                    else if (c == Colours::WHITE) t = std::max(0, std::min(s.wtime, (s.wtime - Lichess::ping) / 20 + s.winc) - Lichess::ping);
-                    else if (c == Colours::BLACK) t = std::max(0, std::min(s.btime, (s.btime - Lichess::ping) / 20 + s.binc) - Lichess::ping);
+                    else if (c == Colours::WHITE) t = getSearchTime(s.wtime, s.winc);
+                    else if (c == Colours::BLACK) t = getSearchTime(s.btime, s.binc);
                     // if theres either a s.wtime s.btime s.winc or s.binc then make it at least 1 ms
-                    if (s.wtime || s.btime || s.winc || s.binc) t = std::max(1, std::min(t, 10000));
+                    if (s.wtime || s.btime || s.winc || s.binc) t = std::max(1, t);
                     if (!t) return 3600000; // if no time is set, cap it to an hour
                     return t;
+                }
+
+                int getSearchTime(int time, int inc){
+
+                    time -= Lichess::ping;
+
+                    int t = 0;
+
+                    if (time < 10000){
+                        t = inc + 100; // if below 10 seconds, make it use ~100ms a turn
+                    }
+                    else{
+                        t = time / 20 + inc;
+                    }
+
+                    // remove Lichess::ping from t so it accounts for the time it takes to get to lichess
+                    // clamp the time used between time remaining and 0
+                    return std::max(0, std::min(time, t) - Lichess::ping);
                 }
 
             };
