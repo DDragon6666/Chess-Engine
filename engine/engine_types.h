@@ -626,14 +626,14 @@ namespace Chess::Engine{
                 while (w_pawns){
                     Square rank = Squares::getY(Bitboards::popNextSquare(w_pawns));
                     // add a bonus for the y position of the pawn
-                    eval.midgame += rank * 10;
-                    eval.endgame += rank * 20 + 50;
+                    eval.midgame += rank * 7;
+                    eval.endgame += rank * 10 + 30;
                 }
                 while (b_pawns){
                     Square rank = 7 - Squares::getY(Bitboards::popNextSquare(b_pawns));
                     // add a bonus for the y position of the pawn
-                    eval.midgame -= rank * 10;
-                    eval.endgame -= rank * 20 + 50;
+                    eval.midgame -= rank * 7;
+                    eval.endgame -= rank * 10 + 30;
                 }
 
                 return eval;
@@ -722,7 +722,7 @@ namespace Chess::Engine{
                 eval.endgame += -2 * (Bitboards::countBits(w_isolated) - Bitboards::countBits(b_isolated));
             
                 // add value for doubled pawns (value should be negative)
-                eval.midgame += -5  * (Bitboards::countBits(w_doubled) - Bitboards::countBits(b_doubled));
+                eval.midgame += -5 * (Bitboards::countBits(w_doubled) - Bitboards::countBits(b_doubled));
                 eval.endgame += -8 * (Bitboards::countBits(w_doubled) - Bitboards::countBits(b_doubled));
 
                 // add value for doubled isolated pawns (value should be negative, there will still be values for it being doubled and isolated so be careful)
