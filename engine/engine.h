@@ -8,8 +8,8 @@
 #include <chrono>
 #include <thread>
 #include <atomic>
-#include <fstream>
 
+#include "..\logger.h"
 #include "..\chess\types.h"
 #include "engine_types.h"
 #include "..\transposition_table\tt.h"
@@ -42,7 +42,7 @@ namespace Chess{
                     if (best_move == 0) best_move = getBestMove(board, search_limits, true);
 
 
-                    log("bestmove " + Chess::Visuals::moveToString(best_move));
+                    Logger::log("bestmove " + Chess::Visuals::moveToString(best_move) + "\n");
                     std::cout << "bestmove " << Chess::Visuals::moveToString(best_move) << '\n';
                 }
 
@@ -148,7 +148,7 @@ namespace Chess{
                                                            " score cp " + std::to_string((int)Evaluations::normalise(alpha, turn)) +
                                                            " pv "       + getPrincipalVariation(board, best_move) +
                                                            '\n';
-                                    log(info_str);
+                                    Logger::log(info_str);
                                     if (print){
                                         std::cout << info_str;
                                     }
@@ -188,13 +188,15 @@ namespace Chess{
     
                         // sort moves
                         std::sort(move_ordering.begin(), move_ordering.end(), [](const MoveOrderingStruct& a, const MoveOrderingStruct& b) {return ((a.raised_alpha != b.raised_alpha) && a.raised_alpha) || (a.importance > b.importance);});
-                
+                        
                         // // // change the moves array
                         for (int i = 0; i < moves.count; i++){
                             moves.moves[i] = move_ordering[i].move;
                         }
-
+                        
                         best_move = best_move_this_iter; // update best move
+                        
+                        TT::save(board.hash, alpha, depth, best_move, Values::NodeTypes::EXACT);
 
                         auto end = std::chrono::high_resolution_clock::now();
                         
@@ -209,7 +211,7 @@ namespace Chess{
                                                " score cp " + std::to_string((int)Evaluations::normalise(alpha, turn)) +
                                                " pv "       + getPrincipalVariation(board, best_move) +
                                                '\n';
-                        log(info_str);
+                        Logger::log(info_str);
 
                         if (print){
                             // print the search info for this depth
@@ -223,12 +225,13 @@ namespace Chess{
                         else{
                             alpha -= 1000;
                         }
-
+                        
                         // if the best move is much better than other moves at a reasonable depth and for_game is true, return the best move
                         if (move_ordering[0].importance - 500 > move_ordering[1].importance && depth > 8 && for_game){
                             stopSearch(timer_thread);
                             return best_move;
                         }
+
 
                         
                     }
@@ -264,7 +267,7 @@ namespace Chess{
                     {
                         TT::TTData entry = TT::getEntry(board.hash);
                         if (entry.hash == board.hash && entry.depth >= depth){
-                            bool legal = 0;
+                            bool legal = false;
                             if (entry.move){
                                 // check if the saved move is legal
                                 for (Move move : moves){
@@ -279,10 +282,10 @@ namespace Chess{
                                     return adjusted_eval;
                                 }
                                 else if (entry.node_type == Values::NodeTypes::FAIL_LOW && adjusted_eval <= alpha) {
-                                    return adjusted_eval - 1;
+                                    return adjusted_eval;
                                 }
                                 else if (entry.node_type == Values::NodeTypes::FAIL_HIGH && adjusted_eval >= beta) {
-                                    return adjusted_eval + 1;
+                                    return adjusted_eval;
                                 }
                             }
                         }
@@ -365,13 +368,13 @@ namespace Chess{
 
                         if (alpha >= beta){
                             ab_prune_count++;
-                            TT::save(board.hash, alpha, depth, move, Values::NodeTypes::FAIL_HIGH);
+                            TT::save(board.hash, alpha, depth, best_move, Values::NodeTypes::FAIL_HIGH);
                             return alpha; // alpha-beta pruning
                         }
                     }
 
                     if (alpha >= beta) {
-                        TT::save(board.hash, beta, depth, best_move, Values::NodeTypes::FAIL_HIGH);
+                        TT::save(board.hash, alpha, depth, best_move, Values::NodeTypes::FAIL_HIGH);
                     } else if (alpha > start_alpha) {
                         TT::save(board.hash, alpha, depth, best_move, Values::NodeTypes::EXACT);
                     } else {
@@ -619,231 +622,6 @@ namespace Chess{
                     return evaluation;
                 }
 
-                void printStaticEvaluation(Board& board){
-
-                    Evaluation piece_evals[64];
-
-                    for (int i = 0; i < 64; i++) piece_evals[i] = 0;
-
-                    double phase = getGamePhase<true>(board);
-
-                    // loop through squares and add a material value
-                    for (int i = 0; i < 64; i++){
-                        Piece p = Pieces::typeOf(board.getPieceAt(i));
-
-                        if (p == Pieces::EMPTY || p == Pieces::W_KING) continue;
-
-                        piece_evals[i] += EvalByPhase(
-                            Values::Eval::PIECE_MG_VALUES[p - 1],
-                            Values::Eval::PIECE_EG_VALUES[p - 1]
-                        ).getEval(phase);
-                    }
-
-                    // loop through squares and the piece square table value
-                    for (int i = 0; i < 64; i++){
-                        Piece  p = Pieces::typeOf   (board.getPieceAt(i));
-                        Colour c = Pieces::getColour(board.getPieceAt(i));
-
-                        if (p == Pieces::EMPTY) continue;
-
-                        EvalByPhase eval = EvalByPhase();
-
-                        switch (p)
-                        {
-                        case Pieces::W_PAWN:
-                            eval = EvalByPhase(
-                                Values::Eval::PSQT::MG_PAWN_TABLE[getSquare(i, c)],
-                                Values::Eval::PSQT::EG_PAWN_TABLE[getSquare(i, c)]
-                            );
-                            break;
-                        case Pieces::W_KNIGHT:
-                            eval = EvalByPhase(
-                                Values::Eval::PSQT::MG_KNIGHT_TABLE[getSquare(i, c)],
-                                Values::Eval::PSQT::EG_KNIGHT_TABLE[getSquare(i, c)]
-                            );
-                            break;
-                        case Pieces::W_BISHOP:
-                            eval = EvalByPhase(
-                                Values::Eval::PSQT::MG_BISHOP_TABLE[getSquare(i, c)],
-                                Values::Eval::PSQT::EG_BISHOP_TABLE[getSquare(i, c)]
-                            );
-                            break;
-                        case Pieces::W_ROOK:
-                            eval = EvalByPhase(
-                                Values::Eval::PSQT::MG_ROOK_TABLE[getSquare(i, c)],
-                                Values::Eval::PSQT::EG_ROOK_TABLE[getSquare(i, c)]
-                            );
-                            break;
-                        case Pieces::W_QUEEN:
-                            eval = EvalByPhase(
-                                Values::Eval::PSQT::MG_QUEEN_TABLE[getSquare(i, c)],
-                                Values::Eval::PSQT::EG_QUEEN_TABLE[getSquare(i, c)]
-                            );
-                            break;
-                        case Pieces::W_KING:
-                            eval = EvalByPhase(
-                                Values::Eval::PSQT::MG_KING_TABLE[getSquare(i, c)],
-                                Values::Eval::PSQT::EG_KING_TABLE[getSquare(i, c)]
-                            );
-                            break;
-                        
-                        default:
-                            break;
-                        }
-
-                        piece_evals[i] += eval.getEval(phase);
-                    }
-
-                    // add mobility for each square
-                    {
-                        Bitboard white_pins = board.getPins<Colours::WHITE>();
-                        Bitboard black_pins = board.getPins<Colours::BLACK>();
-
-                        Bitboard wr = board.pieces[Pieces::W_ROOK];
-                        Bitboard br = board.pieces[Pieces::B_ROOK];
-                        
-                        Bitboard wq = board.pieces[Pieces::W_QUEEN];
-                        Bitboard bq = board.pieces[Pieces::B_QUEEN];
-                        
-                        Bitboard white_mobility_area = Values::Eval::Mobility::getMobilityArea<Colours::WHITE>(board) & ~white_pins;
-                        Bitboard black_mobility_area = Values::Eval::Mobility::getMobilityArea<Colours::BLACK>(board) & ~black_pins;
-
-                        int move_count;
-
-                        for (int i = 0; i < 64; i++){
-                            Piece p = board.getPieceAt(i);
-
-                            if (Pieces::typeOf(p) == Pieces::EMPTY || Pieces::typeOf(p) == Pieces::W_PAWN || Pieces::typeOf(p) == Pieces::W_KING) continue;
-
-                            EvalByPhase eval = EvalByPhase();
-
-                            switch (p)
-                            {
-                            case Pieces::W_KNIGHT:
-                                move_count = Bitboards::countBits(Bitboards::getKnightAttacks((Square)i) & white_mobility_area);
-                                eval = EvalByPhase(
-                                    Values::Eval::Mobility::KNIGHT_MG[move_count],
-                                    Values::Eval::Mobility::KNIGHT_EG[move_count]
-                                );
-                                break;
-                            case Pieces::W_BISHOP:
-                                move_count = Bitboards::countBits(Bitboards::getBishopAttacks(board.all_pieces & ~wq, i) & white_mobility_area);
-                                eval = EvalByPhase(
-                                    Values::Eval::Mobility::BISHOP_MG[move_count],
-                                    Values::Eval::Mobility::BISHOP_EG[move_count]
-                                );
-                                break;
-                            case Pieces::W_ROOK:
-                                move_count = Bitboards::countBits(Bitboards::getRookAttacks(board.all_pieces & ~wq & ~wr, i) & white_mobility_area);
-                                eval = EvalByPhase(
-                                    Values::Eval::Mobility::ROOK_MG[move_count],
-                                    Values::Eval::Mobility::ROOK_EG[move_count]
-                                );
-                                break;
-                            case Pieces::W_QUEEN:
-                                move_count = Bitboards::countBits(Bitboards::getQueenAttacks(board.all_pieces, i) & white_mobility_area);
-                                eval = EvalByPhase(
-                                    Values::Eval::Mobility::QUEEN_MG[move_count],
-                                    Values::Eval::Mobility::QUEEN_EG[move_count]
-                                );
-                                break;
-
-                            case Pieces::B_KNIGHT:
-                                move_count = Bitboards::countBits(Bitboards::getKnightAttacks((Square)i) & black_mobility_area);
-                                eval = EvalByPhase(
-                                    Values::Eval::Mobility::KNIGHT_MG[move_count],
-                                    Values::Eval::Mobility::KNIGHT_EG[move_count]
-                                );
-                                break;
-                            case Pieces::B_BISHOP:
-                                move_count = Bitboards::countBits(Bitboards::getBishopAttacks(board.all_pieces & ~bq, i) & black_mobility_area);
-                                eval = EvalByPhase(
-                                    Values::Eval::Mobility::BISHOP_MG[move_count],
-                                    Values::Eval::Mobility::BISHOP_EG[move_count]
-                                );
-                                break;
-                            case Pieces::B_ROOK:
-                                move_count = Bitboards::countBits(Bitboards::getRookAttacks(board.all_pieces & ~bq & ~br, i) & black_mobility_area);
-                                eval = EvalByPhase(
-                                    Values::Eval::Mobility::ROOK_MG[move_count],
-                                    Values::Eval::Mobility::ROOK_EG[move_count]
-                                );
-                                break;
-                            case Pieces::B_QUEEN:
-                                move_count = Bitboards::countBits(Bitboards::getQueenAttacks(board.all_pieces, i) & black_mobility_area);
-                                eval = EvalByPhase(
-                                    Values::Eval::Mobility::QUEEN_MG[move_count],
-                                    Values::Eval::Mobility::QUEEN_EG[move_count]
-                                );
-                                break;
-                            default:
-                                break;
-                            }
-    
-                            piece_evals[i] += eval.getEval(phase);
-                        }
-                    }
-                
-                    // invert values where there are black pieces
-                    for (int i = 0; i < 64; i++){
-                        if (Pieces::getColour(board.getPieceAt(i)) == Colours::BLACK){
-                            piece_evals[i] = -piece_evals[i];
-                        }
-                    }
-
-                    Evaluation turn_bonus = (board.turn == Colours::WHITE) ?
-                                             EvalByPhase(Values::Eval::MG_TURN_BONUS, Values::Eval::EG_TURN_BONUS).getEval(phase) :
-                                            -EvalByPhase(Values::Eval::MG_TURN_BONUS, Values::Eval::EG_TURN_BONUS).getEval(phase);
-                
-                    Evaluation castling_bonus_w = EvalByPhase(
-                        Values::Eval::MG_CASTLING_BONUS * __builtin_popcount(board.castling_rights[Colours::WHITE]),
-                        0
-                    ).getEval(phase);
-
-                    Evaluation castling_bonus_b = EvalByPhase(
-                        -Values::Eval::MG_CASTLING_BONUS * __builtin_popcount(board.castling_rights[Colours::BLACK]),
-                        0
-                    ).getEval(phase);
-
-                    // total the eval
-                    Evaluation total = 0;
-                    for (int i = 0; i < 64; i++) total += piece_evals[i];
-                    total += turn_bonus;
-                    total += castling_bonus_w;
-                    total += castling_bonus_b;
-
-                    // get static evaluate to make sure this is correct
-                    Evaluation actual_eval = (board.turn == Colours::WHITE) ? staticEvaluate<Colours::WHITE>(board) : staticEvaluate<Colours::BLACK>(board);
-
-                    // print everything
-                    // pieces
-                    // loop through pieces and print the piece
-                    for (int y = 0; y < 8; y++){
-                        std::cout << Visuals::Y_COORDS[7 - y];
-                        for (int x = 0; x < 8; x++){
-                            std::string eval_str = std::to_string((int)piece_evals[56 - y * 8 + x]);
-                            int L = (int)eval_str.length();
-                            for (int j = 0; j < 5 - L; j++) eval_str = " " + eval_str;
-                            std::cout << ' ' << eval_str;
-                        }
-                        std::cout << '\n';
-                    }
-                    std::cout << ' ';
-                    for (int x = 0; x < 8; x++){
-                        std::cout << "     " << Visuals::X_COORDS[x];
-                    }
-                    std::cout << '\n';
-
-                    // print other evaluations it has
-                    std::cout << "turn bonus: " << turn_bonus << '\n';
-                    std::cout << "w castling: " << castling_bonus_w << '\n';
-                    std::cout << "b castling: " << castling_bonus_b << '\n';
-
-                    std::cout << "This:   " << total << '\n';
-                    std::cout << "Static: " << actual_eval << '\n';
-                }
-        
-
                 template<bool fast = true>
                 Evaluation getMoveImportance(Board& board, Move move, Evaluation alpha, Evaluation beta, Bitboard defended_squares){
                     if constexpr (fast){
@@ -927,12 +705,12 @@ namespace Chess{
 
                 std::string getPrincipalVariation(Board& board, Move move){
                     std::string r = "";
-                    // r += Visuals::moveToString(move);
 
                     int i = 0;
-                    for (; i < 20; i++){
+                    while (i < 20){
                         r += Visuals::moveToString(move);
                         r += " ";
+                        i++;
                         board.playMove(move);
                         TT::TTData entry = TT::getEntry(board.hash);
                         if (entry.hash == board.hash){
@@ -944,7 +722,7 @@ namespace Chess{
                         break;
                     }
 
-                    for (int j = 0; j <= i; j++){
+                    for (int j = 0; j < i; j++){
                         board.undoMove();
                     }
 
@@ -996,11 +774,6 @@ namespace Chess{
                     return t;
                 }
 
-                void log(std::string info){
-                    std::ofstream save_file("engine-logs\\logsv2.txt", std::ios::app);
-                    save_file << info;
-                    save_file.close();
-                }
             };
 
     } // namespace Engine
