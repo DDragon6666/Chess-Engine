@@ -514,20 +514,20 @@ namespace Chess::Engine{
 
         namespace Eval::KingSafety{
 
-            Evaluation PAWN_ATT = 10;
-            Evaluation PAWN_DEF = 20;
+            Evaluation PAWN_ATT   = 1;
+            Evaluation PAWN_DEF   = 2;
 
-            Evaluation KNIGHT_ATT = 30;
-            Evaluation KNIGHT_DEF = 40;
+            Evaluation KNIGHT_ATT = 3;
+            Evaluation KNIGHT_DEF = 4;
 
-            Evaluation BISHOP_ATT = 30;
-            Evaluation BISHOP_DEF = 30;
+            Evaluation BISHOP_ATT = 3;
+            Evaluation BISHOP_DEF = 3;
 
-            Evaluation ROOK_ATT   = 30;
-            Evaluation ROOK_DEF   = 30;
+            Evaluation ROOK_ATT   = 3;
+            Evaluation ROOK_DEF   = 3;
 
-            Evaluation QUEEN_ATT  = 50;
-            Evaluation QUEEN_DEF  = 15;
+            Evaluation QUEEN_ATT  = 5;
+            Evaluation QUEEN_DEF  = 2;
 
             EvalByPhase getKingSafetyEval(Board& board){
 
@@ -536,8 +536,8 @@ namespace Chess::Engine{
                 Square b_king = board.kingPos<Colours::BLACK>();
 
                 // get square of kings if they were brought to the centre 6x6 square
-                Square w_king_offedge = std::max<Square>(1, std::min<Square>(6, Squares::getX(w_king))); + 8 * std::max<Square>(1, std::min<Square>(6, Squares::getY(w_king)));
-                Square b_king_offedge = std::max<Square>(1, std::min<Square>(6, Squares::getX(b_king))); + 8 * std::max<Square>(1, std::min<Square>(6, Squares::getY(b_king)));
+                Square w_king_offedge = std::max<Square>(1, std::min<Square>(6, Squares::getX(w_king))) + 8 * std::max<Square>(1, std::min<Square>(6, Squares::getY(w_king)));
+                Square b_king_offedge = std::max<Square>(1, std::min<Square>(6, Squares::getX(b_king))) + 8 * std::max<Square>(1, std::min<Square>(6, Squares::getY(b_king)));
 
                 // squares which are dangerous for the king
                 Bitboard w_kingsafety_squares = Bitboards::getKingAttacks(w_king_offedge);
