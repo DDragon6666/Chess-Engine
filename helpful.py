@@ -1,29 +1,26 @@
-import chess.pgn
-import io
+import matplotlib.pyplot as plt
+
+start_time = 600_000 # 10 minutes
+increment = 5_000 # 5 seconds
 
 
-uci = input('uci: ')
+def get_time_used(x):
+    if (x < 10000): return min(x, increment + 100)
+    return x / 20 + increment
+
+times = []
 
 
-board = chess.Board()
+time = start_time
 
-uci_moves = uci.split()
+for i in range(200):
+    print(i, time / 1000)
+    times.append(time / 1000)
+    time -= get_time_used(time)
+    time += increment
 
-for move in uci_moves:
-    board.push(chess.Move.from_uci(move))
 
-game = chess.pgn.Game()
-game.setup(board.root())
+times.append(time / 1000)
 
-node = game
-
-# Replay the moves in PGN
-for move in board.move_stack:
-    node = node.add_variation(move)
-
-# Save PGN to a string
-pgn_io = io.StringIO()
-print(game, file=pgn_io)
-pgn_string = pgn_io.getvalue()
-
-print(pgn_string)  # Print the PGN
+plt.plot([i for i in range(len(times))], times)
+plt.show()
